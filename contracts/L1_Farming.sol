@@ -89,8 +89,8 @@ contract L1_Farm {
         
         daiTokenTrack = TokenDataProvider(0x692F4C7C81b6D3E85b98785f127966FE94A7D946);
         
-        fundManager = FundManageProvider(0x757736EB252e0393a83fd305F21957C0b1Bc8141);
-        dex = DexProvider(0x63b43B56968c8687dbf13f02f59e31FbEe76FCca);
+        fundManager = FundManageProvider(0x341270758f254a8e37400d07b4E772187B2d0252);
+        dex = DexProvider(0x61d4842b8B9F7a6516230aD4352C6b3e9E3DF739);
     }
     
     function harvest() public {
@@ -269,6 +269,6 @@ contract L1_Farm {
         
         // Calling Adjust fund
         fundManager.updateTokenDatas(_tokensData);
-        // fundManager.adjustFund(_tokensData);
+        fundManager.adjustFund(_tokensData);
     }
 }

@@ -37,10 +37,14 @@ contract Dex {
         tokens[_ticker] = Token(_ticker, _tokenAddress, _price);
     }
     
-    function updateTokenPrice(TokenData[] memory _tokenDatas) onlyDataFeeder() public{
+    function updateTokenPrice(TokenData[6] calldata _tokenDatas) onlyDataFeeder() external{
         for(uint256 i=0;i<_tokenDatas.length;i++){
             tokens[_tokenDatas[i].ticker].price = _tokenDatas[i].price;
         }
+    }
+    
+    function changeDataFeederAddress(address _dataFeederAddress) onlyAdmin() public {
+        dataFeederAddress = _dataFeederAddress;
     }
     
     function swap(uint256 _amount, bytes32 _currencyA, bytes32 _currencyB) tokenExist(_currencyA) tokenExist(_currencyB) public {
