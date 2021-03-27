@@ -19,6 +19,7 @@ interface FundManageProvider {
     function decreaseFund(bytes32, uint256) external;
     function adjustFund(TokenData[6] calldata) external;
     function updateTokenDatas(TokenData[6] calldata) external;
+    function getTotalHoldingValue() external view returns(uint256);
 }
 
 interface DexProvider {
@@ -77,7 +78,7 @@ contract L1_Farm {
         lastMinting = block.number;
         totalStaking = 0;
         // mintPerBlock = _mintPerBlock;
-        mintPerBlock = 10000000000;
+        mintPerBlock = 10*1e18;
         mintingStart = false;
         
         // For contacting to Data Node & fundManger & Mocking DEX
@@ -138,9 +139,11 @@ contract L1_Farm {
         return sqrt(daiAmount);
     }
 
-    function stakeTokens(uint amount) public {
+    function stakeTokens(uint256 amount) public {
         // Require amount greater than 0
         require(amount > 0, "amount cannot be 0");
+        
+        amount *= 1e18;
 
         // Trasnfer Mock Dai tokens to this contract for staking
         // daiToken.transferFrom(msg.sender, address(this), _amount);
@@ -270,5 +273,24 @@ contract L1_Farm {
         // Calling Adjust fund
         fundManager.updateTokenDatas(_tokensData);
         fundManager.adjustFund(_tokensData);
+    }
+    
+    function getTVL() public returns(uint256){
+        // Call to Chainlink to update 
+        updateMktCap();
+        
+        // Pull Token Data
+        TokenData[6] memory _tokensData;
+         for(uint8 i=0; i < 5;i++) {
+            (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(trackToken[i].providerAddress).getTokenData();
+            _tokensData[i] = (TokenData(ticker, mktCap, price));
+        }
+        
+        // Hard code for DAI
+        (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(daiTokenTrack.providerAddress).getTokenData();
+        _tokensData[5] = TokenData(0xa5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568, mktCap, price);
+        
+        fundManager.updateTokenDatas(_tokensData);
+        return fundManager.getTotalHoldingValue();
     }
 }
