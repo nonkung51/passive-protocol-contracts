@@ -97,10 +97,9 @@ contract FarmingPool {
         require(amount > 0, "amount cannot be 0");
 
         // Trasnfer Mock Dai tokens to this contract for staking
-        // daiToken.transferFrom(msg.sender, address(this), _amount);
         IERC20(daiToken.tokenAddress).transferFrom(
             msg.sender,
-            address(this),
+            address(this), // Maybe use Fund Manager Wallet instead?
             amount
         );
         
@@ -140,6 +139,7 @@ contract FarmingPool {
         require(balance > 0, "staking balance cannot be 0");
 
         // Transfer Mock Dai tokens to this contract for staking
+        // Maybe transfer from Fund Manager Wallet instead?
         IERC20(daiToken.tokenAddress).transfer(msg.sender, balance);
 
         // Reset staking balance
