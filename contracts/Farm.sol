@@ -7,7 +7,6 @@ interface MinterInterface {
     function burn(uint256 amount) external; 
 }
 
-// A Simple Farm need refactor !!
 contract FarmingPool {
     string public name = "Simple Farm";
     address public owner;
@@ -80,12 +79,17 @@ contract FarmingPool {
         lastRewardBlock = block.number;
     }
     
-    function forDebugging1(address _address) public view returns (uint256) {
-        return mintPerBlock * (block.number - lastRewardBlock) * (stakingBalance[_address] / totalStaking);
-    }
-    
-    function forDebugging2() public view returns (uint256) {
-        return lastRewardBlock;
+    function calculateLP(uint256 daiAmount) private returns (uint256) {
+        // let's Mocking it so TVL = totalStaking ** 2 * 1.05
+        // Growing by 5%
+        if (mintingStart) {
+            // Equation: DAIin * LPtotal / TVL
+            // We should using real EQUATION
+            // but again we are Mocking this ;-;
+            return sqrt(daiAmount);
+        }
+        
+        return sqrt(daiAmount);
     }
 
     function stakeTokens(uint amount) public {
@@ -99,10 +103,12 @@ contract FarmingPool {
             address(this),
             amount
         );
+        
+        uint256 LP = calculateLP(amount);
 
         // Update staking balance
-        stakingBalance[msg.sender] = stakingBalance[msg.sender] + amount;
-        totalStaking += amount;
+        stakingBalance[msg.sender] = stakingBalance[msg.sender] + LP;
+        totalStaking += LP;
 
         // Add user to stakers array *only* if they haven't staked already
         if(!hasStaked[msg.sender]) {
@@ -120,6 +126,9 @@ contract FarmingPool {
         
         // Update Pool
         updatePool();
+        
+        // Force harvest
+        harvest();
     }
 
     // Unstaking Tokens (Withdraw)
@@ -145,5 +154,15 @@ contract FarmingPool {
         
         // Force harvest
         harvest();
+    }
+    
+    // Babylonian Method from https://ethereum.stackexchange.com/questions/2910/can-i-square-root-in-solidity
+    function sqrt(uint x) private returns (uint y) {
+        uint z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
     }
 }
