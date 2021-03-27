@@ -1,4 +1,5 @@
 pragma solidity 0.6.3;
+pragma experimental ABIEncoderV2;
 
 import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol';
 
@@ -8,6 +9,7 @@ interface MinterInterface {
 
 contract Dex {
     address public admin;
+    address public dataFeederAddress;
     
     bytes32[] public tokenList;
     struct Token {
@@ -16,20 +18,29 @@ contract Dex {
         uint256 price;
     }
     mapping(bytes32 => Token) public tokens;
-
-    constructor() public {
-        admin = msg.sender;
-    }
     
-    function addToken(bytes32 _ticker, address _tokenAddress, uint256 _pric) onlyAdmin() public {
+    struct TokenData{
+        bytes32 ticker;
+        uint256 mktCap;
+        uint256 price;
+    }
+
+    constructor(address _dataFeederAddress) public {
+        admin = msg.sender;
+        dataFeederAddress = _dataFeederAddress;
+    }
+
+    function addToken(bytes32 _ticker, address _tokenAddress, uint256 _price) onlyAdmin() public {
         if(tokens[_ticker].tokenAddress == address(0)){
             tokenList.push(_ticker);
         }
-        tokens[_ticker] = Token(_ticker, _tokenAddress, _pric);
+        tokens[_ticker] = Token(_ticker, _tokenAddress, _price);
     }
     
-    function editPrice(bytes32 _ticker, uint256 _price) onlyAdmin() public {
-        tokens[_ticker].price = _price;
+    function updateTokenPrice(TokenData[] memory _tokenDatas) onlyDataFeeder() public{
+        for(uint256 i=0;i<_tokenDatas.length;i++){
+            tokens[_tokenDatas[i].ticker].price = _tokenDatas[i].price;
+        }
     }
     
     function swap(uint256 _amount, bytes32 _currencyA, bytes32 _currencyB) tokenExist(_currencyA) tokenExist(_currencyB) public {
@@ -49,6 +60,11 @@ contract Dex {
     
     modifier onlyAdmin() {
         require(msg.sender == admin, 'only admin');
+        _;
+    }
+    
+    modifier onlyDataFeeder() {
+        require(msg.sender == dataFeederAddress, 'only dataFedder');
         _;
     }
     
