@@ -9,14 +9,14 @@ interface MinterInterface {
 contract Dex {
     address public admin;
     
+    bytes32[] public tokenList;
     struct Token {
         bytes32 ticker;
         address tokenAddress;
         uint256 price;
     }
     mapping(bytes32 => Token) public tokens;
-    bytes32[] public tokenList;
-    
+
     constructor() public {
         admin = msg.sender;
     }
