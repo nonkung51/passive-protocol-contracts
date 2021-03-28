@@ -15,8 +15,8 @@ interface TokenDataProviderInterface {
 }
 
 interface FundManageProvider {
-    function increaseFund(bytes32, uint256) external;
-    function decreaseFund(bytes32, uint256) external;
+    function increaseFund(uint256) external;
+    function decreaseFund(uint256) external;
     function adjustFund(TokenData[6] calldata) external;
     function updateTokenDatas(TokenData[6] calldata) external;
     function getTotalHoldingValue() external view returns(uint256);
@@ -68,7 +68,7 @@ contract L1_Farm {
     
 
     // constructor(address _daiToken, address _passiveToken, uint256 _mintPerBlock) public {
-    constructor() public {
+    constructor(address fundAddr,address dexAddr) public {
         // daiToken = Token(_daiToken);
         // passiveToken = Token(_passiveToken);
         daiToken = Token(0xcac5A73d6A02673A3A29517641789ACBAfa6496d);
@@ -90,8 +90,8 @@ contract L1_Farm {
         
         daiTokenTrack = TokenDataProvider(0x692F4C7C81b6D3E85b98785f127966FE94A7D946);
         
-        fundManager = FundManageProvider(0x341270758f254a8e37400d07b4E772187B2d0252);
-        dex = DexProvider(0x61d4842b8B9F7a6516230aD4352C6b3e9E3DF739);
+        fundManager = FundManageProvider(fundAddr);
+        dex = DexProvider(dexAddr);
     }
     
     function harvest() public {
@@ -133,10 +133,10 @@ contract L1_Farm {
             // Equation: DAIin * LPtotal / TVL
             // We should using real EQUATION
             // but again we are Mocking this ;-;
-            return sqrt(daiAmount);
+            return daiAmount;
         }
         
-        return sqrt(daiAmount);
+        return daiAmount;
     }
 
     function stakeTokens(uint256 amount) public {
@@ -152,6 +152,9 @@ contract L1_Farm {
             address(this),
             amount
         );
+        
+        // Mint DAI on L2
+        fundManager.increaseFund(amount);
         
         uint256 LP = calculateLP(amount);
 
@@ -184,12 +187,15 @@ contract L1_Farm {
     function unstakeTokens() public {
         // Fetch staking balance
         uint balance = stakingBalance[msg.sender];
-
+        
         // Require amount greater than 0
         require(balance > 0, "staking balance cannot be 0");
-
+        
         // Transfer Mock Dai tokens to this contract for staking
         IERC20(daiToken.tokenAddress).transfer(msg.sender, balance);
+        
+        // Burn DAI on L2
+        fundManager.decreaseFund(balance);
 
         // Reset staking balance
         stakingBalance[msg.sender] = 0;
@@ -203,6 +209,8 @@ contract L1_Farm {
         
         // Force harvest
         harvest();
+        
+        
     }
     
     // Babylonian Method from https://ethereum.stackexchange.com/questions/2910/can-i-square-root-in-solidity
@@ -244,12 +252,12 @@ contract L1_Farm {
         TokenData[6] memory _tokensData;
          for(uint8 i=0; i < 5;i++) {
             (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(trackToken[i].providerAddress).getTokenData();
-            _tokensData[i] = (TokenData(ticker, mktCap, price));
+            _tokensData[i] = (TokenData(ticker, price,mktCap));
         }
         
         // Hard code for DAI
         (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(daiTokenTrack.providerAddress).getTokenData();
-        _tokensData[5] = TokenData(0xa5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568, mktCap, price);
+        _tokensData[5] = TokenData(0xa5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568, price,mktCap);
         
         // Update DEX Data
         dex.updateTokenPrice(_tokensData);
@@ -261,18 +269,22 @@ contract L1_Farm {
         
         // Pull Token Data
         TokenData[6] memory _tokensData;
-         for(uint8 i=0; i < 5;i++) {
+        for(uint8 i=0; i < 5;i++) {
             (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(trackToken[i].providerAddress).getTokenData();
-            _tokensData[i] = (TokenData(ticker, mktCap, price));
+            _tokensData[i] = (TokenData(ticker, price, mktCap));
         }
         
         // Hard code for DAI
         (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(daiTokenTrack.providerAddress).getTokenData();
-        _tokensData[5] = TokenData(0xa5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568, mktCap, price);
+        _tokensData[5] = TokenData(0xa5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568, price,mktCap);
         
         // Calling Adjust fund
         fundManager.updateTokenDatas(_tokensData);
         fundManager.adjustFund(_tokensData);
+        
+        // transfer pending amount to msg.sender
+        MinterInterface(passiveToken.tokenAddress).mint(100e18);
+        IERC20(passiveToken.tokenAddress).transfer(msg.sender, 100e18);
     }
     
     function getTVL() public returns(uint256){
@@ -281,14 +293,14 @@ contract L1_Farm {
         
         // Pull Token Data
         TokenData[6] memory _tokensData;
-         for(uint8 i=0; i < 5;i++) {
+        for(uint8 i=0; i < 5;i++) {
             (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(trackToken[i].providerAddress).getTokenData();
-            _tokensData[i] = (TokenData(ticker, mktCap, price));
+            _tokensData[i] = (TokenData(ticker, price, mktCap));
         }
         
         // Hard code for DAI
         (bytes32 ticker, uint256 mktCap, uint256 price) = TokenDataProviderInterface(daiTokenTrack.providerAddress).getTokenData();
-        _tokensData[5] = TokenData(0xa5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568, mktCap, price);
+        _tokensData[5] = TokenData(0xa5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568, price,mktCap);
         
         fundManager.updateTokenDatas(_tokensData);
         return fundManager.getTotalHoldingValue();

@@ -29,7 +29,11 @@ contract Dex {
         admin = msg.sender;
         dataFeederAddress = _dataFeederAddress;
     }
-
+    
+    function changeDataFeederAddress(address _dataFeederAddress) onlyAdmin() public {
+        dataFeederAddress = _dataFeederAddress;
+    }
+    
     function addToken(bytes32 _ticker, address _tokenAddress, uint256 _price) onlyAdmin() public {
         if(tokens[_ticker].tokenAddress == address(0)){
             tokenList.push(_ticker);
@@ -41,10 +45,6 @@ contract Dex {
         for(uint256 i=0;i<_tokenDatas.length;i++){
             tokens[_tokenDatas[i].ticker].price = _tokenDatas[i].price;
         }
-    }
-    
-    function changeDataFeederAddress(address _dataFeederAddress) onlyAdmin() public {
-        dataFeederAddress = _dataFeederAddress;
     }
     
     function swap(uint256 _amount, bytes32 _currencyA, bytes32 _currencyB) tokenExist(_currencyA) tokenExist(_currencyB) public {

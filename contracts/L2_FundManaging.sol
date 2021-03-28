@@ -29,12 +29,14 @@ contract FundManaging {
     }
     mapping(bytes32 => TokenData) public tokenDatas;
     
+    mapping(bytes32 => uint256) public holdingBalanceValue;
+    
     constructor(address _dexAddress) public {
         admin = msg.sender;
         dexAddress = _dexAddress;
     }
     
-    function changeDexAddress(address _dexAddress) onlyAdmin() public {
+    function changeDexAddress(address _dexAddress) onlyAdmin() public  {
         for(uint256 i=0;i<tokenList.length;i++ ){
             IERC20(tokens[tokenList[i]].tokenAddress).approve(dexAddress,0);
             IERC20(tokens[tokenList[i]].tokenAddress).approve(_dexAddress,1e18);
@@ -50,12 +52,38 @@ contract FundManaging {
         IERC20(tokens[_ticker].tokenAddress).approve(dexAddress,uint256(-1));
     }
     
-    function increaseFund(bytes32 _ticker, uint256 _amount) public {
-        CoinInterface(tokens[_ticker].tokenAddress).mint(_amount);
+    function increaseFund(uint256 _amount) public {
+        CoinInterface(tokens[keccak256("DAI")].tokenAddress).mint(_amount);
     }
     
-    function decreaseFund(bytes32 _ticker, uint256 _amount) public {
-        CoinInterface(tokens[_ticker].tokenAddress).burn(_amount);
+    function decreaseFund(uint256 _amount,TokenData[6] calldata _tokenDatas) external {
+        TokenData[6] memory temp_tokenDatas = _tokenDatas;
+        for(uint256 i=0;i<_tokenDatas.length;i++){
+            tokenDatas[temp_tokenDatas[i].ticker] = temp_tokenDatas[i];
+        }
+        
+        //Sell all ?Token to DAI and Get totalMktCap in one time loop
+        uint256 totalMktCap = 0;
+        for(uint256 i=0;i<tokenList.length;i++){
+            if(tokenList[i] != keccak256("DAI")){
+                _trade(IERC20(tokens[tokenList[i]].tokenAddress).balanceOf(address(this)),tokenList[i],keccak256("DAI"));
+                totalMktCap += tokenDatas[tokenList[i]].mktCap;
+            }
+        }
+        
+        CoinInterface(tokens[keccak256("DAI")].tokenAddress).burn(_amount);
+        
+        uint256 totalDAI = IERC20(tokens[keccak256("DAI")].tokenAddress).balanceOf(address(this));
+        
+        // //Hold 10% for Liqudate
+        // totalDAI = totalDAI - (totalDAI/10);
+        
+        //Buy each ?Token in fund using DAI
+        for(uint256 i=0;i<tokenList.length;i++){
+            if(tokenList[i] != keccak256("DAI")){
+                _trade((totalDAI*tokenDatas[tokenList[i]].mktCap/totalMktCap),keccak256("DAI"),tokenList[i]);
+            }
+        }
     }
     
     //Stupid Adjusting
@@ -74,8 +102,9 @@ contract FundManaging {
             }
         }
         
-        //Buy each ?Token in fund using DAI
         uint256 totalDAI = IERC20(tokens[keccak256("DAI")].tokenAddress).balanceOf(address(this));
+        
+        //Buy each ?Token in fund using DAI
         for(uint256 i=0;i<tokenList.length;i++){
             if(tokenList[i] != keccak256("DAI")){
                 _trade((totalDAI*tokenDatas[tokenList[i]].mktCap/totalMktCap),keccak256("DAI"),tokenList[i]);
@@ -115,7 +144,7 @@ contract FundManaging {
     //         }
     //     }
         
-    //     //Buy ?Token using DAI 
+    //     Buy ?Token using DAI 
     //     for(uint256 i=0;i<tokenList.length;i++){
     //         uint256 valueNew =((tokenDatas[tokenList[i]].mktCap/totalFundMktCap)*totalFundValue)/tokenDatas[tokenList[i]].price;
     //         uint256 valueNew_RealHolding = valueNew-(totalFundValue);
@@ -131,7 +160,7 @@ contract FundManaging {
     //Get TotalFundValue (Not Include DAI)
     /* you should call updateTokenDatas(TokenData[6] calldata _tokenDatas) before do this!*/
     function getTotalFundValue() public view returns(uint256){
-        return getTotalHoldingValue() - IERC20(tokens[keccak256("DAI")].tokenAddress).balanceOf(address(this));
+        return getTotalHoldingValue() - (IERC20(tokens[keccak256("DAI")].tokenAddress).balanceOf(address(this))*(tokenDatas[keccak256("DAI")].price))/(1e36);
     }
     
     //Get TotalHoldingValue (Include DAI)
@@ -139,7 +168,7 @@ contract FundManaging {
     function getTotalHoldingValue() public view returns(uint256){
         uint256 totalFundValue = 0;
         for(uint256 i=0;i<tokenList.length;i++){
-            totalFundValue += IERC20(tokens[tokenList[i]].tokenAddress).balanceOf(address(this))*(tokenDatas[tokenList[i]].price);
+            totalFundValue += (IERC20(tokens[tokenList[i]].tokenAddress).balanceOf(address(this))/1e18)*(tokenDatas[tokenList[i]].price/1e18);
         }
         
         return totalFundValue;
@@ -159,7 +188,7 @@ contract FundManaging {
         SwapInterface(dexAddress).swap(_amount,_currencyA,_currencyB);
     }
     
-    function _incAllowanceDex(bytes32 ticker) private {
+    function _incAllowanceDex(bytes32 ticker) private{
         IERC20(tokens[ticker].tokenAddress).approve(dexAddress,uint256(-1));
     }
     
