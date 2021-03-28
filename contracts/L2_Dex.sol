@@ -53,7 +53,7 @@ contract Dex {
         IERC20(tokens[_currencyA].tokenAddress).transferFrom(msg.sender,address(this),_amount);
         
         //Calculate amount of _currencyB for mint
-        uint256 bAmount = _amount * tokens[_currencyB].price / tokens[_currencyA].price;
+        uint256 bAmount = _amount * tokens[_currencyA].price / tokens[_currencyB].price;
         
         //Mint _currencyB  
         MinterInterface(tokens[_currencyB].tokenAddress).mint(bAmount);
